@@ -56,8 +56,8 @@
         const scale = transform.k;
         
         // スケールに応じて制限を動的に調整
-        const maxX = width * 0.3 / scale;
-        const maxY = height * 0.3 / scale;
+        const maxX = 0;
+        const maxY = 0;
         
         // x, y座標を制限範囲内に収める
         transform.x = Math.min(Math.max(transform.x, -maxX), maxX);
