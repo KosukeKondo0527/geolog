@@ -101,14 +101,6 @@
         for (const [code, id] of Object.entries(iso3ToId)) {
           idToISO3[id] = code;
         }
-        
-        // 北米と南米の国リスト（3文字コード）
-        const americasCountries = [
-          // 北米と南米の国コード
-          "USA", "CAN", "MEX", "GTM", "BLZ", "HND", "SLV", "NIC", "CRI", "PAN", 
-          "CUB", "BHS", "JAM", "HTI", "DOM", "PRI", "BMU", "BRB", "TTO", "GRL", // グリーンランドを追加
-          "COL", "VEN", "GUY", "SUR", "BRA", "ECU", "PER", "BOL", "PRY", "URY", "ARG", "CHL"
-        ];
 
         // SVG選択を g に変更（ズーム対象のグループ要素）
         g.selectAll("path")
@@ -133,12 +125,9 @@
               );
             }
             
-            const isAmericas = americasCountries.some(code => iso3ToId[code] === numId);
             
             if (isVisited) {
               return "#29b6f6"; // 訪問済みの国
-            } else if (isAmericas) {
-              return "#e8e8e8"; // アメリカ大陸は薄い灰色
             } else {
               return "#ccc"; // その他の国
             }
