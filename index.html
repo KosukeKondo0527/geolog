@@ -49,6 +49,7 @@
     // ズーム動作を定義
     const zoom = d3.zoom()
       .scaleExtent([1, 8])  // 拡大範囲: 1倍〜8倍
+      .translateExtent([[-width * 0.5, -height * 0.5], [width * 1.5, height * 1.5]]) // ドラッグ範囲の制限
       .on("zoom", (event) => {
         g.attr("transform", event.transform);
       })
