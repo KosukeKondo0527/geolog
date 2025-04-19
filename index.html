@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>log() - A Developer's Travel Map</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #f9f9f9;
+      text-align: center;
+    }
+    h1 {
+      margin-top: 30px;
+    }
+    svg {
+      width: 100%;
+      height: 600px;
+    }
+    footer {
+      margin: 40px 0;
+      font-size: 0.9rem;
+      color: #777;
+    }
+  </style>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://d3js.org/topojson.v3.min.js"></script>
+</head>
+<body>
+  <h1>log() — A Developer's Trace Around the World</h1>
+  <svg id="map"></svg>
+  <footer>&copy; 2025 Kosuke Kondo</footer>
+
+  <script>
+    const visitedCountries = ["JPN", "TUR", "ALB", "GEO"];  // 2文字から3文字コードに変更
+    const baseUrl = "https://example.com/";
+
+    const width = 960;
+    const height = 600;
+
+    const svg = d3.select("#map")
+      .attr("viewBox", `0 0 ${width} ${height}`);
+
+    const projection = d3.geoMercator()
+      .center([70, 40])   // アジア地域（東経100度、北緯20度付近）を中心に
+      .rotate([0, 0])      // 回転なし
+      .scale(350)          // より拡大して表示
+      .translate([width / 2, height / 2]);
+
+    const path = d3.geoPath().projection(projection);
+
+    d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(worldData => {
+      const countries = topojson.feature(worldData, worldData.objects.countries).features;
+      
+      // サンプルの国のプロパティを詳細に出力
+      const japan = countries.find(c => c.properties.name === "Japan");
+      console.log("日本の完全なプロパティ一覧:", japan);
+      console.log("日本のID:", japan.id);
+      console.log("日本のプロパティ:", japan.properties);
+      
+      // 国コード情報を追加でフェッチ
+      d3.json("https://raw.githubusercontent.com/lukes/ISO-3166-Countries-with-Regional-Codes/master/slim-3/slim-3.json").then(countryData => {
+        
+        // 不要なマッピングを削除
+        // nameToISO3と nameToNumericは使用されていないため削除
+        
+        // 3文字コードから数値IDへのマッピング自動生成
+        const iso3ToId = {};
+        countryData.forEach(country => {
+          iso3ToId[country["alpha-3"]] = parseInt(country["country-code"], 10);
+        });
+        
+        // デバッグログを削減（本番では不要）
+        // console.log("3文字コード→数値ID変換マップ:", iso3ToId);
+        console.log("JPN→数値ID:", iso3ToId["JPN"]); // 基本動作確認用
+        
+        // 数値IDから3文字コードへの逆引きマップを作成
+        const idToISO3 = {};
+        for (const [code, id] of Object.entries(iso3ToId)) {
+          idToISO3[id] = code;
+        }
+        
+        // 北米と南米の国リスト（3文字コード）
+        const americasCountries = [
+          // 北米と南米の国コード
+          "USA", "CAN", "MEX", "GTM", "BLZ", "HND", "SLV", "NIC", "CRI", "PAN", 
+          "CUB", "BHS", "JAM", "HTI", "DOM", "PRI", "BMU", "BRB", "TTO", "GRL", // グリーンランドを追加
+          "COL", "VEN", "GUY", "SUR", "BRA", "ECU", "PER", "BOL", "PRY", "URY", "ARG", "CHL"
+        ];
+
+        svg.selectAll("path")
+          .data(countries)
+          .join("path")
+          .attr("d", path)
+          .attr("fill", d => {
+            // 文字列型のIDを数値に変換して比較
+            const numId = Number(d.id);
+            
+            // IDによる直接マッピング（数値型で統一）
+            const isVisited = visitedCountries.some(code => iso3ToId[code] === numId);
+            
+            // 日本のデータをデバッグ
+            if (d.properties.name === "Japan") {
+              console.log("日本の比較(数値型):", 
+                numId, 
+                typeof numId,
+                iso3ToId["JPN"], 
+                typeof iso3ToId["JPN"],
+                numId === iso3ToId["JPN"]
+              );
+            }
+            
+            const isAmericas = americasCountries.some(code => iso3ToId[code] === numId);
+            
+            if (isVisited) {
+              return "#29b6f6"; // 訪問済みの国
+            } else if (isAmericas) {
+              return "#e8e8e8"; // アメリカ大陸は薄い灰色
+            } else {
+              return "#ccc"; // その他の国
+            }
+          })
+          .attr("stroke", "#fff")
+          .attr("stroke-width", 0.5)
+          .on("click", (event, d) => {
+            // 数値型に変換してからマップ検索
+            const numId = Number(d.id);
+            const iso3Code = idToISO3[numId];
+            if (iso3Code && visitedCountries.includes(iso3Code)) {
+              window.open(baseUrl + iso3Code, "_blank");
+            }
+          })
+          .append("title")
+          .text(d => {
+            // 数値型に変換してからマップ検索
+            const numId = Number(d.id);
+            const iso3Code = idToISO3[numId];
+            return d.properties.name + (iso3Code && visitedCountries.includes(iso3Code) ? " (Visited)" : "");
+          });
+      });
+    });
+  </script>
+</body>
+</html>
