@@ -48,11 +48,23 @@
 
     // ズーム動作を定義
     const zoom = d3.zoom()
-      .scaleExtent([1, 8])  // 拡大範囲: 1倍〜8倍
+      .scaleExtent([1, 14])  // 拡大範囲: 1倍〜8倍
       .translateExtent([[-width * 0.2, -height * 0.2], [width * 1.2, height * 1.2]]) // より厳しい制限に
       .on("zoom", (event) => {
         // 単純にtransformをそのまま適用する
         g.attr("transform", event.transform);
+        
+        // ズームレベルに応じてラベルの表示/非表示を切り替え
+        const scale = event.transform.k;
+        if (scale > 4) {
+          // ズームレベルが4以上の場合、ラベルを表示
+          labels.attr("opacity", 1);
+          // ズームレベルに応じてフォントサイズを調整
+          labels.attr("font-size", `${8/scale}px`);
+        } else {
+          // ズームレベルが4未満の場合、ラベルを非表示
+          labels.attr("opacity", 0);
+        }
         
         // 移動範囲の制限が必要な場合は以下のコメントを解除
         /*
@@ -169,6 +181,21 @@
             const iso3Code = idToISO3[numId];
             return d.properties.name + (iso3Code && visitedCountries.includes(iso3Code) ? " (Visited)" : "");
           });
+        
+        // 国名ラベルを追加
+        const labels = g.selectAll(".country-label")
+          .data(countries)
+          .join("text")
+          .attr("class", "country-label")
+          .attr("transform", d => {
+            // 国の中心点を計算
+            const centroid = path.centroid(d);
+            return `translate(${centroid[0]}, ${centroid[1]})`;
+          })
+          .attr("text-anchor", "middle")
+          .attr("font-size", "8px")
+          .attr("opacity", 0) // 初期状態では非表示
+          .text(d => d.properties.name);
       });
     });
   </script>
