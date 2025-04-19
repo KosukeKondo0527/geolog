@@ -42,10 +42,23 @@
     const svg = d3.select("#map")
       .attr("viewBox", `0 0 ${width} ${height}`);
 
+    // グループ要素を追加してズーム操作の対象とする
+    const g = svg.append("g");
+
+    // ズーム動作を定義
+    const zoom = d3.zoom()
+      .scaleExtent([1, 8])  // 拡大範囲: 1倍〜8倍
+      .on("zoom", (event) => {
+        g.attr("transform", event.transform);
+      });
+
+    // SVGにズーム動作を適用
+    svg.call(zoom);
+
     const projection = d3.geoMercator()
-      .center([70, 40])   // アジア地域（東経100度、北緯20度付近）を中心に
-      .rotate([0, 0])      // 回転なし
-      .scale(350)          // より拡大して表示
+      .center([100, 20])   // アジア地域にフォーカス
+      .rotate([0, 0])      
+      .scale(240)          
       .translate([width / 2, height / 2]);
 
     const path = d3.geoPath().projection(projection);
@@ -89,7 +102,8 @@
           "COL", "VEN", "GUY", "SUR", "BRA", "ECU", "PER", "BOL", "PRY", "URY", "ARG", "CHL"
         ];
 
-        svg.selectAll("path")
+        // SVG選択を g に変更（ズーム対象のグループ要素）
+        g.selectAll("path")
           .data(countries)
           .join("path")
           .attr("d", path)
