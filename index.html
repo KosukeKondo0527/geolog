@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>log() - A Developer's Travel Map</title>
   <style>
     body {
@@ -17,6 +17,7 @@
     svg {
       width: 100%;
       height: 600px;
+      touch-action: none; /* タッチアクションをブラウザのデフォルト動作から切り離す */
     }
     footer {
       margin: 40px 0;
@@ -50,10 +51,17 @@
       .scaleExtent([1, 8])  // 拡大範囲: 1倍〜8倍
       .on("zoom", (event) => {
         g.attr("transform", event.transform);
-      });
+      })
+      .touchable(true);  // タッチイベントを明示的に有効化
 
     // SVGにズーム動作を適用
-    svg.call(zoom);
+    svg.call(zoom)
+      .on("touchstart touchmove", function(event) {
+        // ピンチイベント中はページスクロールをブロック
+        if (event.touches && event.touches.length >= 2) {
+          event.preventDefault();
+        }
+      });
 
     const projection = d3.geoMercator()
       .center([100, 20])   // アジア地域にフォーカス
