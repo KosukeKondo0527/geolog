@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, maximum-scale=1.0, user-scalable=no">
+  <title>log() - A Developer's Travel Map</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #f9f9f9;
+      text-align: center;
+    }
+    h1 {
+      margin-top: 30px;
+    }
+    #map {
+      width: 100%;
+      height: 600px;
+    }
+    footer {
+      margin: 40px 0;
+      font-size: 0.9rem;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <h1>log() — A Developer's Trace Around the World</h1>
+  <div id="map"></div>
+  <footer>&copy; 2025 Kosuke Kondo</footer>
+
+  <script>
+    // 訪問済みの国のリスト（3文字コード）
+    const visitedCountries = ["JPN", "TUR", "ALB", "GEO"];
+    const baseUrl = "https://example.com/";
+    
+    // 国コードと国名のマッピング用辞書（初期は空）
+    let countryCodeMap = {};
+    
+    // APIキーを環境に応じて取得する関数
+    function getApiKey() {
+      // 本番環境かどうか判定（GitHub Pagesやあなたのドメイン）
+      const isProd = window.location.hostname.includes('github.io')
+      
+      if (isProd) {
+        // 本番環境用キー（ハードコードする）
+        return 'AIzaSyCWtIBn1--S0QgxsJDHQPpvju5aORoD8TM';
+      } else {
+        // 開発環境用キー（config.jsから読み込む）
+        return CONFIG.MAPS_API_KEY;
+      }
+    }
+    
+    // 動的にGoogle Maps APIを読み込む
+    function loadMapsApi() {
+      // 最初にconfig.jsが正しく読み込まれているか確認
+      if (!isProd && typeof CONFIG === 'undefined') {
+        console.error('config.js が見つかりません。開発環境では config.js を作成してAPIキーを設定してください。');
+        return;
+      }
+      
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${getApiKey()}&libraries=geometry&callback=initMap&language=en`;
+      script.async = true;
+      script.defer = true;
+      document.body.appendChild(script);
+    }
+    
+    // 本番環境かどうか判定
+    const isProd = window.location.hostname.includes('github.io') || 
+                   window.location.hostname.includes('yourdomain.com') ||
+                   !window.location.hostname.includes('localhost');
+                   
+    // 環境に応じたスクリプト読み込み
+    if (isProd) {
+      // 本番環境では直接読み込み
+      loadMapsApi();
+    } else {
+      // 開発環境ではconfig.jsを先に読み込む
+      const configScript = document.createElement('script');
+      configScript.src = 'config.js';
+      configScript.onload = loadMapsApi;
+      configScript.onerror = () => {
+        console.error('config.js の読み込みに失敗しました。ファイルが存在するか確認してください。');
+      };
+      document.body.appendChild(configScript);
+    }
+    
+    // 地図の初期化関数
+    function initMap() {
+      // 地図スタイルを定義（白地図風）
+      const mapStyle = [
+  // 全体の背景色（グレー系）
+  {
+    featureType: "all",
+    elementType: "geometry",
+    stylers: [{ color: "#000000" }]
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#000000" }]
+  },
+
+  // 国名ラベル（これだけ表示）
+  {
+    featureType: "administrative.country",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#ffffff" }]
+  },
+  {
+    featureType: "administrative.country",
+    elementType: "labels.text.stroke",
+    stylers: [{ visibility: "off" }, { weight: 0 }]
+  },
+
+  // その他のラベルを非表示
+  {
+    featureType: "administrative.province",
+    elementType: "labels",
+    stylers: [{ visibility: "off" }]
+  },
+  {
+    featureType: "administrative.locality",
+    elementType: "labels",
+    stylers: [{ visibility: "off" }]
+  },
+  {
+    featureType: "poi",
+    elementType: "labels",
+    stylers: [{ visibility: "off" }]
+  },
+  {
+    featureType: "road",
+    elementType: "labels",
+    stylers: [{ visibility: "off" }]
+  },
+  {
+    featureType: "transit",
+    elementType: "labels",
+    stylers: [{ visibility: "off" }]
+  },
+  {
+    featureType: "water",
+    elementType: "labels",
+    stylers: [{ visibility: "off" }]
+}
+  // ここに他のスタイルを追加できます
+];
+
+      // 地図オプション
+      const mapOptions = {
+        center: { lat: 35, lng: 150 }, // 中心を日本近辺に設定
+        zoom: 2,
+        minZoom: 2,
+        maxZoom: 10,
+        styles: mapStyle, // スタイルを適用
+        mapTypeControl: false,
+        streetViewControl: false
+      };
+
+      // 地図を初期化
+      const map = new google.maps.Map(document.getElementById("map"), mapOptions);
+
+      // ズームレベルが変わったときのラベル制御を削除
+
+      // GeoJSONデータを読み込み
+      loadGeoJson(map);
+      addCountryLabels(map);
+
+    }
+
+    // GeoJSONデータ読み込みと処理
+    function loadGeoJson(map) {
+      // 世界の国境データを読み込み
+      map.data.loadGeoJson(
+        "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson",
+        null,
+        (features) => {
+            console.log(`読み込んだ国の数: ${features.length}`);
+            if (features.length === 0) {
+                console.error("GeoJSONが読み込まれていません。URLがブロックされてる可能性があります。");
+            }
+            addCountryLabels(map);
+            }
+            
+        );
+
+      
+      // データが読み込まれたら国コード辞書を構築
+      map.data.addListener('addfeature', function(event) {
+        const feature = event.feature;
+        const iso3Code = feature.getProperty("ISO3166-1-Alpha-3");
+        const countryName = feature.getProperty("ADMIN") || feature.getProperty("name");
+        // 国コード→国名のマッピングを追加
+        if (iso3Code && countryName) {
+          countryCodeMap[iso3Code] = countryName;
+        }
+    
+      });
+      
+      // 国のスタイルを設定
+      map.data.setStyle(feature => {
+        const iso3 = feature.getProperty("ISO3166-1-Alpha-3");
+        const visited = visitedCountries.includes(iso3);
+
+        return {
+            fillColor: visited ? '#29b6f6' : '#e0e0e0',
+            fillOpacity: visited ? 0.2 : 0,
+            strokeColor: visited ? "green" : "grey",
+            strokeWeight: 0.6
+        };
+        });
+
+
+      
+      // クリックイベントを設定
+      map.data.addListener("click", function(event) {
+        const countryName = event.feature.getProperty("ADMIN") || event.feature.getProperty("name");
+        // 国名を取得して表示（オプション）
+        console.log(`訪問国 ${countryName}のページを開きます`);
+        window.open(baseUrl + countryName, "_blank");
+      });
+
+    
+    }
+
+
+
+  </script>
+</body>
+</html>

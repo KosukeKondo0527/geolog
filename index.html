@@ -1,328 +1,114 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, maximum-scale=1.0, user-scalable=no">
-  <title>log() - A Developer's Travel Map</title>
+  <meta charset="utf-8" />
+  <title>Visited Countries Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
   <style>
     body {
       margin: 0;
+      background: #454444;
       font-family: sans-serif;
-      background-color: #f9f9f9;
-      text-align: center;
-    }
-    h1 {
-      margin-top: 30px;
     }
     #map {
-      width: 100%;
-      height: 600px;
-    }
-    footer {
-      margin: 40px 0;
-      font-size: 0.9rem;
-      color: #777;
+      width: 100vw;
+      height: 100vh;
     }
   </style>
 </head>
 <body>
-  <h1>log() — A Developer's Trace Around the World</h1>
   <div id="map"></div>
-  <footer>&copy; 2025 Kosuke Kondo</footer>
 
   <script>
-    // 訪問済みの国のリスト（3文字コード）
+    mapboxgl.accessToken = 'pk.eyJ1Ijoia28ya2UiLCJhIjoiY205b2trcG5mMGJxczJxczRnZG4yYzRtcSJ9.va8ZaWJjK7qOjOjHUQCDcg';
+
+
     const visitedCountries = ["JPN", "TUR", "ALB", "GEO"];
-    const baseUrl = "https://example.com/";
+
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/ko2ke/cm9on9unn009901qs2d5o6m44',
+      center: [20, 30],
+      zoom: 2,
+      renderWorldCopies: true
+    });
+
+    // CSV URL（公開されていて、"sum" シート）
     
-    // 国コードと国名のマッピング用辞書（初期は空）
-    let countryCodeMap = {};
-    
-    // APIキーを環境に応じて取得する関数
-    function getApiKey() {
-      // 本番環境かどうか判定（GitHub Pagesやあなたのドメイン）
-      const isProd = window.location.hostname.includes('github.io')
-      
-      if (isProd) {
-        // 本番環境用キー（ハードコードする）
-        return 'AIzaSyCWtIBn1--S0QgxsJDHQPpvju5aORoD8TM';
-      } else {
-        // 開発環境用キー（config.jsから読み込む）
-        return CONFIG.MAPS_API_KEY;
-      }
+    const jsonUrl = 'https://script.google.com/macros/s/AKfycbzRIG3PFPi1j9vppasb2NH8_8uY3aQmLRJZnvQGfqtOMx-SH6_luedThmzdGLbPXMya/exec';
+
+
+    async function fetchStayData() {
+        const res = await fetch(jsonUrl);
+        const text = await res.text();       // ← json() ではなく text()
+        const data = JSON.parse(text);   
+
+    return data.map(d => ({
+        code: d.code,
+        days: d.days
+    }));
     }
     
-    // 動的にGoogle Maps APIを読み込む
-    function loadMapsApi() {
-      // 最初にconfig.jsが正しく読み込まれているか確認
-      if (!isProd && typeof CONFIG === 'undefined') {
-        console.error('config.js が見つかりません。開発環境では config.js を作成してAPIキーを設定してください。');
-        return;
-      }
-      
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${getApiKey()}&libraries=geometry&callback=initMap`;
-      script.async = true;
-      script.defer = true;
-      document.body.appendChild(script);
-    }
-    
-    // 本番環境かどうか判定
-    const isProd = window.location.hostname.includes('github.io') || 
-                   window.location.hostname.includes('yourdomain.com') ||
-                   !window.location.hostname.includes('localhost');
-                   
-    // 環境に応じたスクリプト読み込み
-    if (isProd) {
-      // 本番環境では直接読み込み
-      loadMapsApi();
-    } else {
-      // 開発環境ではconfig.jsを先に読み込む
-      const configScript = document.createElement('script');
-      configScript.src = 'config.js';
-      configScript.onload = loadMapsApi;
-      configScript.onerror = () => {
-        console.error('config.js の読み込みに失敗しました。ファイルが存在するか確認してください。');
-      };
-      document.body.appendChild(configScript);
-    }
-    
-    // 地図の初期化関数
-    function initMap() {
-      // 地図スタイルを定義（白地図風）
-      const mapStyle = [
-        {
-          "elementType": "geometry",
-          "stylers": [{"color": "#f5f5f5"}]
-        },
-        {
-          "elementType": "labels.text",
-          "stylers": [{"visibility": "off"}, {"zIndex": 1000}]
-        },
-        {
-          "elementType": "labels.text.stroke",
-          "stylers": [{"color": "#ffffff"}, {"weight": 3}]
-        },
-        {
-          "elementType": "labels.text.fill",
-          "stylers": [{"color": "#333333"}]
-        }
-      ];
+    map.on('load', async () => {
+      const stayData = await fetchStayData();
+      const codeList = stayData.map(d => d.code);
+      const codeToDays = Object.fromEntries(stayData.map(d => [d.code, d.days]));
 
-      // 地図オプション
-      const mapOptions = {
-        center: { lat: 35, lng: 150 }, // 中心を日本近辺に設定
-        zoom: 2,
-        minZoom: 2,
-        maxZoom: 10,
-        styles: mapStyle, // スタイルを適用
-        mapTypeControl: false,
-        streetViewControl: false
-      };
-
-      // 地図を初期化
-      const map = new google.maps.Map(document.getElementById("map"), mapOptions);
-
-      // ズームレベルが変わったときのラベル制御を削除
-
-      // GeoJSONデータを読み込み
-      loadGeoJson(map);
-      addCountryLabels(map);
-
-    }
-
-    // GeoJSONデータ読み込みと処理
-    function loadGeoJson(map) {
-      // 世界の国境データを読み込み
-      map.data.loadGeoJson(
-        "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson",
-        null,
-        (features) => {
-            console.log(`読み込んだ国の数: ${features.length}`);
-            if (features.length === 0) {
-                console.error("GeoJSONが読み込まれていません。URLがブロックされてる可能性があります。");
-            }
-            addCountryLabels(map);
-            }
-            
-        );
-
-      
-      // データが読み込まれたら国コード辞書を構築
-      map.data.addListener('addfeature', function(event) {
-        const feature = event.feature;
-        const iso3Code = feature.getProperty("ISO3166-1-Alpha-3");
-        const countryName = feature.getProperty("ADMIN") || feature.getProperty("name");
-        // 国コード→国名のマッピングを追加
-        if (iso3Code && countryName) {
-          countryCodeMap[iso3Code] = countryName;
-        }
-    
-      });
-      
-      // 国のスタイルを設定
-      map.data.setStyle(function(feature) {
-        const iso3Code = feature.getProperty("ISO3166-1-Alpha-3");
-        const isVisited = visitedCountries.includes(iso3Code);
-
-        return {
-            fillColor: isVisited ? "#29b6f6" : "#eeeeee", // 未訪問国をうっすらグレー
-            fillOpacity: 0.5,
-            strokeWeight: isVisited ? 1 : 0.2,
-            strokeColor: "#aaaaaa"
-        };
+      map.addSource('countries', {
+        type: 'vector',
+        url: 'mapbox://mapbox.country-boundaries-v1'
       });
 
-
-      
-      // クリックイベントを設定
-      map.data.addListener("click", function(event) {
-        const countryName = event.feature.getProperty("ADMIN") || event.feature.getProperty("name");
-        // 国名を取得して表示（オプション）
-        console.log(`訪問国 ${countryName}のページを開きます`);
-        window.open(baseUrl + countryName, "_blank");
+      // 滞在日数で色分け塗りつぶし
+      map.addLayer({
+        id: 'visited-fill',
+        type: 'fill',
+        source: 'countries',
+        'source-layer': 'country_boundaries',
+        filter: ['in', 'iso_3166_1_alpha_2', ...codeList],
+        paint: {
+          'fill-color': [
+            'interpolate',
+            ['linear'],
+            ['to-number', ['get', 'stayDays'], 0],
+            0, '#e0f7fa',
+            10, '#4dd0e1',
+            30, '#00acc1',
+            60, '#006064'
+          ],
+          'fill-opacity': 0.8
+        }
       });
 
-      
-      
-    function addCountryLabels(map) {
-        const markers = [];
-  map.data.forEach(feature => {
-    const iso3Code = feature.getProperty("ISO3166-1-Alpha-3");
-    const countryName = feature.getProperty("ADMIN") || feature.getProperty("name");
-    if ( !countryName) return;
-
-    const geom = feature.getGeometry();
-
-    const latLngArray = getLargestRingLatLngArray(geom);
-    let center = getGeometricCenter(latLngArray);
-    if (iso3Code === "HRV") {
-    center = new google.maps.LatLng(45.1, 15.5); // クロアチアの見やすい中心
-    }   
-    
-    const area = getTotalAreaOfGeom(geom);
-    const minZoom =
-    area >   250_000_000_000 ? 2 :
-    area >    100_000_000_000 ? 3 :
-    area >    60_000_000_000 ? 4 :
-    area >     8_000_000_000 ? 5 : 6
-
-    const visited = visitedCountries.includes(iso3Code);
-
-    let marker = null;
-
-    if (visited) {
-      // 訪問済みの国にラベルを追加
-      marker = new google.maps.Marker({
-        position: center,
-        map,
-        label: {
-            text: countryName,
-            color: "#000000",
-            fontSize: "12px",
-            fontWeight: "bold"
-        },
-        icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 0
+      // 国境線（シンプル）
+      map.addLayer({
+        id: 'visited-border',
+        type: 'line',
+        source: 'countries',
+        'source-layer': 'country_boundaries',
+        filter: ['in', 'iso_3166_1_alpha_2', ...codeList],
+        paint: {
+          'line-color': '#4caf50',
+          'line-width': 1.5
         }
-        });
-    } else {
-      // 未訪問の国にラベルを追加
-      marker = new google.maps.Marker({
-            position: center,
-            map, // 初期は非表示
-            label: {
-                text: countryName,
-                color: "#000000",
-                fontSize: "10px",
-            },
-            icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                scale: 0
-            }
+      });
+
+      // データ注入：滞在日数 → feature に stayDays を設定
+      map.on('sourcedata', (e) => {
+        if (e.sourceId !== 'countries' || !e.isSourceLoaded) return;
+        const features = map.querySourceFeatures('countries', {
+          sourceLayer: 'country_boundaries'
         });
 
-    }
-
-
-    marker.minZoom = minZoom; // カスタムプロパティ
-    markers.push(marker);
-
-
-  });
-
-  markers.forEach((marker, i) => {
-  console.log(`[${i}] ${marker.countryName}, minZoom: ${marker.minZoom}, visible: ${marker.getVisible()}`);
-});
- // ズーム時にラベル表示切替
- map.addListener('zoom_changed', () => {
-  const zoom = map.getZoom();
-  markers.forEach(marker => {
-    const shouldBeVisible = zoom >= marker.minZoom;
-    marker.setVisible(shouldBeVisible);
-  });
-});
-
-  // 初回トリガー
-  google.maps.event.trigger(map, 'zoom_changed');
-}
-
-function getLargestRingLatLngArray(geom) {
-  if (geom.getType() === "Polygon") {
-    return geom.getArray()[0].getArray(); // 単一ポリゴンの外周
-  }
-
-  // MultiPolygonの場合 → 各ポリゴンの外周面積を比べる
-  let maxArea = 0;
-  let bestRing = [];
-
-  geom.getArray().forEach(polygon => {
-    const outerRing = polygon.getArray()[0];
-    const latLngArray = outerRing.getArray();
-    const area = google.maps.geometry.spherical.computeArea(latLngArray);
-
-    if (area > maxArea) {
-      maxArea = area;
-      bestRing = latLngArray;
-    }
-  });
-
-  return bestRing;
-}
-
-function getGeometricCenter(latlngs) {
-  const count = latlngs.length;
-  let sumLat = 0, sumLng = 0;
-
-  latlngs.forEach(latlng => {
-    sumLat += latlng.lat();
-    sumLng += latlng.lng();
-  });
-
-  return new google.maps.LatLng(sumLat / count, sumLng / count);
-}
-
-function getTotalAreaOfGeom(geom) {
-  if (geom.getType() === "Polygon") {
-    const ring = geom.getArray()[0].getArray();
-    return google.maps.geometry.spherical.computeArea(ring);
-  }
-
-  // MultiPolygon: 全外周の合計面積
-  let total = 0;
-  geom.getArray().forEach(polygon => {
-    const ring = polygon.getArray()[0].getArray();
-    total += google.maps.geometry.spherical.computeArea(ring);
-  });
-  return total;
-}
-
-    
-    }
-
-
-
+        features.forEach(f => {
+          const code = f.properties.iso_3166_1_alpha_2;
+          const days = codeToDays[code];
+          if (days !== undefined) f.properties.stayDays = days;
+        });
+      });
+    });
   </script>
 </body>
 </html>
