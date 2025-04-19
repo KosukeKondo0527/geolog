@@ -51,19 +51,24 @@
       .scaleExtent([1, 8])  // 拡大範囲: 1倍〜8倍
       .translateExtent([[-width * 0.2, -height * 0.2], [width * 1.2, height * 1.2]]) // より厳しい制限に
       .on("zoom", (event) => {
-        // 移動範囲に追加の制限をかける
+        // 単純にtransformをそのまま適用する
+        g.attr("transform", event.transform);
+        
+        // 移動範囲の制限が必要な場合は以下のコメントを解除
+        /*
         const transform = event.transform;
         const scale = transform.k;
         
-        // スケールに応じて制限を動的に調整
-        const maxX = 0;
-        const maxY = 0;
+        // スケールに応じて制限を動的に調整（スケールが大きいほど移動範囲を広げる）
+        const maxX = width * 0.3 * scale;
+        const maxY = height * 0.3 * scale;
         
         // x, y座標を制限範囲内に収める
         transform.x = Math.min(Math.max(transform.x, -maxX), maxX);
         transform.y = Math.min(Math.max(transform.y, -maxY), maxY);
         
         g.attr("transform", transform);
+        */
       })
       .touchable(true);  // タッチイベントを明示的に有効化
 
