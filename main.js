@@ -1,6 +1,8 @@
 // main.js
 function getISO2Code(props) {
-    return props["ISO3166-1-Alpha-2"] || props["iso_3166_1"] || props["iso_3166_1_alpha_2"] || null;
+    const raw = props.code || props["ISO3166-1-Alpha-2"] || props["iso_3166_1"] || props["iso_3166_1_alpha_2"] || null;
+    if (raw === "CN-TW") return "TW";
+    return raw;
   }
   
   function getCountryName(props) {
@@ -49,6 +51,7 @@ function getISO2Code(props) {
           ...f,
           properties: {
             ...f.properties,
+            code,
             stayDays: days,
             urlList: urls
           }
@@ -125,7 +128,8 @@ function getISO2Code(props) {
       }
     });
   
-    map.on('click', 'country-boundaries', (e) => {
+    map.on('click', 'visited-fill-gradient', (e) => {
+    
       const props = e.features[0].properties;
       const code = getISO2Code(props);
       const name = getCountryName(props);
@@ -159,6 +163,13 @@ function getISO2Code(props) {
   
       const offcanvas = new bootstrap.Offcanvas(document.getElementById('infoPanel'));
       offcanvas.show();
+    });
+
+    map.on('mouseenter', 'visited-fill-gradient', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+    map.on('mouseleave', 'visited-fill-gradient', () => {
+    map.getCanvas().style.cursor = '';
     });
   
     const loadingOverlay = document.getElementById('loadingOverlay');
