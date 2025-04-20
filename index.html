@@ -45,6 +45,7 @@
   </div>
 
   <script src="config.js"></script>
+  <script src="secret.js"></script>
   <script type="module">
     function getISO2Code(props) {
       return props["ISO3166-1-Alpha-2"] || props["iso_3166_1"] || props["iso_3166_1_alpha_2"] || null;
@@ -54,7 +55,16 @@
       return props["name_en"] || props["ADMIN"] || props["name"] || "Unknown";
     }
 
-    mapboxgl.accessToken = CONFIG.MAPBOX_API_KEY;
+    const isProd = window.location.hostname.includes('github.io') || 
+                   window.location.hostname.includes('yourdomain.com') ||
+                   !window.location.hostname.includes('localhost');
+                   
+    // 環境に応じたスクリプト読み込み
+    if (isProd) {
+        mapboxgl.accessToken = CONFIG.MAPBOX_API_KEY;
+    } else {
+        mapboxgl.accessToken = SECRET.MAPBOX_API_KEY_DEV;
+    }
 
     const map = new mapboxgl.Map({
       container: 'map',
