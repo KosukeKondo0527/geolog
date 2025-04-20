@@ -74,7 +74,7 @@ function getISO2Code(props) {
       paint: {
         'fill-color': [
           'interpolate', ['linear'], ['get', 'stayDays'],
-          0, '#ffffff', 10, '#4dd0e1', 30, '#00acc1', 60, '#006064'
+          0, '#eeeeee', 10, '#4dd0e1', 30, '#00acc1', 60, '#006064'
         ],
         'fill-opacity': 0.8,
         'fill-outline-color': '#ffffff'
