@@ -5,7 +5,12 @@
   <title>Visited Countries Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+  <script async src="https://www.instagram.com/embed.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
   <style>
     body {
       margin: 0;
@@ -16,16 +21,40 @@
       width: 100vw;
       height: 100vh;
     }
+    #infoPanel {
+      width: 400px;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <script>
-    mapboxgl.accessToken = 'pk.eyJ1Ijoia28ya2UiLCJhIjoiY205b2trcG5mMGJxczJxczRnZG4yYzRtcSJ9.va8ZaWJjK7qOjOjHUQCDcg';
+  <!-- Bootstrap Offcanvas -->
+  <div class="offcanvas offcanvas-end text-bg-dark" tabindex="-1" id="infoPanel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="panelTitle"></h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body" id="panelBody">
+      <!-- Instagram posts + Scrapbox link will be injected here -->
+    </div>
+  </div>
 
+  <div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center bg-dark bg-opacity-75 text-white fs-4" style="z-index: 99999;">
+    Loading map data...
+  </div>
 
-    const visitedCountries = ["JPN", "TUR", "ALB", "GEO"];
+  <script src="config.js"></script>
+  <script type="module">
+    function getISO2Code(props) {
+      return props["ISO3166-1-Alpha-2"] || props["iso_3166_1"] || props["iso_3166_1_alpha_2"] || null;
+    }
+
+    function getCountryName(props) {
+      return props["name_en"] || props["ADMIN"] || props["name"] || "Unknown";
+    }
+
+    mapboxgl.accessToken = CONFIG.MAPBOX_API_KEY;
 
     const map = new mapboxgl.Map({
       container: 'map',
@@ -35,80 +64,147 @@
       renderWorldCopies: true
     });
 
-    // CSV URL（公開されていて、"sum" シート）
-    
-    const jsonUrl = 'https://script.google.com/macros/s/AKfycbzRIG3PFPi1j9vppasb2NH8_8uY3aQmLRJZnvQGfqtOMx-SH6_luedThmzdGLbPXMya/exec';
-
-
     async function fetchStayData() {
-        const res = await fetch(jsonUrl);
-        const text = await res.text();       // ← json() ではなく text()
-        const data = JSON.parse(text);   
-
-    return data.map(d => ({
-        code: d.code,
-        days: d.days
-    }));
+      const res = await fetch(CONFIG.DATA_API_URL);
+      return await res.json();
     }
-    
+
+
+
     map.on('load', async () => {
       const stayData = await fetchStayData();
-      const codeList = stayData.map(d => d.code);
       const codeToDays = Object.fromEntries(stayData.map(d => [d.code, d.days]));
+      const codeToPosts = Object.fromEntries(stayData.map(d => [d.code,d.instas]));
 
-      map.addSource('countries', {
-        type: 'vector',
-        url: 'mapbox://mapbox.country-boundaries-v1'
+      const res = await fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson');
+      const worldGeoJson = await res.json();
+
+      const enhancedGeoJson = {
+        type: 'FeatureCollection',
+        features: worldGeoJson.features.map(f => {
+          const code = getISO2Code(f.properties);
+          const days = codeToDays[code];
+          const urls = codeToPosts[code];
+          if (days === undefined) return null;
+          return {
+            ...f,
+            properties: {
+              ...f.properties,
+              stayDays: days,
+              urlList: urls
+            }
+          };
+        }).filter(f => f !== null)
+      };
+
+      map.addSource('visited-countries', {
+        type: 'geojson',
+        data: enhancedGeoJson
       });
 
-      // 滞在日数で色分け塗りつぶし
       map.addLayer({
-        id: 'visited-fill',
+        id: 'visited-fill-gradient',
         type: 'fill',
-        source: 'countries',
-        'source-layer': 'country_boundaries',
-        filter: ['in', 'iso_3166_1_alpha_2', ...codeList],
+        source: 'visited-countries',
         paint: {
           'fill-color': [
-            'interpolate',
-            ['linear'],
-            ['to-number', ['get', 'stayDays'], 0],
-            0, '#e0f7fa',
-            10, '#4dd0e1',
-            30, '#00acc1',
-            60, '#006064'
+            'interpolate', ['linear'], ['get', 'stayDays'],
+            0, '#ffffff', 10, '#4dd0e1', 30, '#00acc1', 60, '#006064'
           ],
-          'fill-opacity': 0.8
+          'fill-opacity': 0.8,
+          'fill-outline-color': '#ffffff'
         }
       });
 
-      // 国境線（シンプル）
       map.addLayer({
-        id: 'visited-border',
+        id: 'visited-outline',
         type: 'line',
-        source: 'countries',
-        'source-layer': 'country_boundaries',
-        filter: ['in', 'iso_3166_1_alpha_2', ...codeList],
+        source: 'visited-countries',
         paint: {
-          'line-color': '#4caf50',
-          'line-width': 1.5
+          'line-color': '#00FF88',
+          'line-width': 0.5
         }
       });
 
-      // データ注入：滞在日数 → feature に stayDays を設定
-      map.on('sourcedata', (e) => {
-        if (e.sourceId !== 'countries' || !e.isSourceLoaded) return;
-        const features = map.querySourceFeatures('countries', {
-          sourceLayer: 'country_boundaries'
-        });
-
-        features.forEach(f => {
-          const code = f.properties.iso_3166_1_alpha_2;
-          const days = codeToDays[code];
-          if (days !== undefined) f.properties.stayDays = days;
-        });
+      const labelFeatures = [];
+      const seenCodes = new Set();
+      enhancedGeoJson.features.forEach(f => {
+        const props = f.properties;
+        const code = getISO2Code(props);
+        const days = props.stayDays;
+        const name = getCountryName(props);
+        if (!seenCodes.has(code)) {
+          const center = turf.centroid(f);
+          center.properties = { stayDays: days, name };
+          labelFeatures.push(center);
+          seenCodes.add(code);
+        }
       });
+
+      map.addSource('stay-labels', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: labelFeatures
+        }
+      });
+
+      map.addLayer({
+        id: 'stay-days-large-label',
+        type: 'symbol',
+        source: 'stay-labels',
+        layout: {
+          'text-field': ['concat', ['get', 'stayDays'], 'd'],
+          'text-font': ['Open Sans Bold'],
+          'text-size': 19,
+          'text-anchor': 'center'
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': '#000000',
+          'text-halo-width': 1
+        }
+      });
+
+      map.on('click', 'country-boundaries', (e) => {
+        const props = e.features[0].properties;
+        const code = getISO2Code(props);
+        const name = getCountryName(props);
+        const urls = codeToPosts[code].filter(url => url.includes("instagram.com")).reverse();
+
+        const panelTitle = document.getElementById('panelTitle');
+        const panelBody = document.getElementById('panelBody');
+        panelTitle.innerText = name;
+        panelBody.innerHTML = '';
+
+        if (urls.length > 0) {
+          urls.forEach(url => {
+            const block = document.createElement('blockquote');
+            block.className = 'instagram-media';
+            block.setAttribute('data-instgrm-permalink', url);
+            block.setAttribute('data-instgrm-version', '14');
+            block.style = "max-width: 540px; margin: 2rem auto;";
+            panelBody.appendChild(block);
+          });
+          if (window.instgrm) window.instgrm.Embeds.process();
+        } else {
+          panelBody.appendChild(document.createTextNode('No posts available.'));
+        }
+
+        const scrapboxLink = document.createElement('a');
+        scrapboxLink.href = `https://scrapbox.io/ko2ke-log/${encodeURIComponent(name)}`;
+        scrapboxLink.innerText = `View more on Scrapbox →`;
+        scrapboxLink.target = '_blank';
+        scrapboxLink.className = 'd-block mt-4 text-info fw-bold';
+        panelBody.appendChild(scrapboxLink);
+
+        const offcanvas = new bootstrap.Offcanvas(document.getElementById('infoPanel'));
+        offcanvas.show();
     });
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        loadingOverlay.classList.add('d-none');
+
+      });
   </script>
 </body>
 </html>
