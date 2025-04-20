@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <title>Visited Countries Map</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">  
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
   <script async src="https://www.instagram.com/embed.js"></script>
@@ -17,14 +17,25 @@
       background: #454444;
       font-family: sans-serif;
     }
-    #map {
-      width: 100vw;
-      height: 100vh;
-    }
+
     #infoPanel {
       width: 400px;
     }
+
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden; /* ← 地図がスクロールでズレないように */
+    }
+
+    #map {
+    height: 100%;
+    width: 100%;
+    }
   </style>
+
+
 </head>
 <body>
   <div id="map"></div>
