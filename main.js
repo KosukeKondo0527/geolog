@@ -21,7 +21,7 @@ function getISO2Code(props) {
   
   const map = new mapboxgl.Map({
     container: 'map',
-    style: 'mapbox://styles/ko2ke/cm9on9unn009901qs2d5o6m44',
+    style: 'mapbox://styles/ko2ke/cm9q4nl5d006t01s02gas72xe',
     center: [20, 30],
     zoom: 2,
     renderWorldCopies: true
@@ -35,7 +35,7 @@ function getISO2Code(props) {
   map.on('load', async () => {
     const stayData = await fetchStayData();
     const codeToDays = Object.fromEntries(stayData.map(d => [d.code, d.days]));
-    const codeToPosts = Object.fromEntries(stayData.map(d => [d.code, d.instas]));
+    const codeToPosts = Object.fromEntries(stayData.map(d => [d.code,d.instas]));
   
     const res = await fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson');
     const worldGeoJson = await res.json();
@@ -44,19 +44,22 @@ function getISO2Code(props) {
       type: 'FeatureCollection',
       features: worldGeoJson.features.map(f => {
         const code = getISO2Code(f.properties);
-        const days = codeToDays[code];
-        const urls = codeToPosts[code];
-        if (days === undefined) return null;
+        const name = getCountryName(f.properties);
+        const days = codeToDays[code] ?? 0;
+        const urls = codeToPosts[code] ?? [];
+        if (urls.length > 0) {
+            console.log(urls);
+        }
         return {
           ...f,
           properties: {
             ...f.properties,
             code,
+            name,
             stayDays: days,
-            urlList: urls
           }
         };
-      }).filter(f => f !== null)
+      })
     };
   
     map.addSource('visited-countries', {
@@ -77,25 +80,39 @@ function getISO2Code(props) {
         'fill-outline-color': '#ffffff'
       }
     });
+
+    map.addLayer({
+        id: 'unvisited-outline',
+        type: 'line',
+        source: 'visited-countries',
+        filter: ['<=', ['get', 'stayDays'], 0],
+        paint: {
+          'line-color': '#888888',
+          'line-width': 0.5
+        }
+    });
   
     map.addLayer({
-      id: 'visited-outline',
-      type: 'line',
-      source: 'visited-countries',
-      paint: {
-        'line-color': '#00FF88',
-        'line-width': 0.5
-      }
+        id: 'visited-outline',
+        type: 'line',
+        source: 'visited-countries',
+        filter: ['>', ['get', 'stayDays'], 0],
+        paint: {
+          'line-color': '#00FF88',
+          'line-width': 0.5
+        }
     });
+
+
   
     const labelFeatures = [];
     const seenCodes = new Set();
     enhancedGeoJson.features.forEach(f => {
       const props = f.properties;
-      const code = getISO2Code(props);
+      const code = props.code;
       const days = props.stayDays;
-      const name = getCountryName(props);
-      if (!seenCodes.has(code)) {
+      const name = props.name;
+      if (!seenCodes.has(code) && days > 0) {
         const center = turf.centroid(f);
         center.properties = { stayDays: days, name };
         labelFeatures.push(center);
@@ -129,11 +146,13 @@ function getISO2Code(props) {
     });
   
     map.on('click', 'visited-fill-gradient', (e) => {
-    
+       
       const props = e.features[0].properties;
-      const code = getISO2Code(props);
-      const name = getCountryName(props);
-      const urls = codeToPosts[code].filter(url => url.includes("instagram.com")).reverse();
+      console.log(props);
+      const code = props.code;
+      const name = props.name;
+      
+      const urls = codeToPosts[code]?.filter(url => url.includes("instagram.com"))?.reverse() || [];
   
       const panelTitle = document.getElementById('panelTitle');
       const panelBody = document.getElementById('panelBody');
@@ -155,7 +174,7 @@ function getISO2Code(props) {
       }
   
       const scrapboxLink = document.createElement('a');
-      scrapboxLink.href = `https://scrapbox.io/ko2ke-log/${encodeURIComponent(name)}`;
+      scrapboxLink.href = `https://scrapbox.io/ko2ke-log/country:${code}`;
       scrapboxLink.innerText = `View more on Scrapbox →`;
       scrapboxLink.target = '_blank';
       scrapboxLink.className = 'd-block mt-4 text-info fw-bold';
@@ -164,12 +183,12 @@ function getISO2Code(props) {
       const offcanvas = new bootstrap.Offcanvas(document.getElementById('infoPanel'));
       offcanvas.show();
     });
-
+  
     map.on('mouseenter', 'visited-fill-gradient', () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
+      map.getCanvas().style.cursor = 'pointer';
+    });
     map.on('mouseleave', 'visited-fill-gradient', () => {
-    map.getCanvas().style.cursor = '';
+      map.getCanvas().style.cursor = '';
     });
   
     const loadingOverlay = document.getElementById('loadingOverlay');
