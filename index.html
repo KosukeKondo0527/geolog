@@ -8,9 +8,11 @@
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
   <script async src="https://www.instagram.com/embed.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/7.2.0/mdb.min.css" rel="stylesheet"/>
+  
+  <!-- Bootstrap JS追加 -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  
   <style>
     body {
       margin: 0;
@@ -33,10 +35,48 @@
       height: 100%;
       width: 100%;
     }
+
+    /* ロゴのスタイリング */
+    .logo-header {
+      filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.8));
+      transition: all 0.2s ease;
+      height: 60px; /* 基本サイズ */
+      width: auto;
+    }
+
+    .logo-header:hover {
+      filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.6));
+    }
+
+    /* 画面サイズに応じた調整 */
+    @media (max-width: 768px) {
+      .logo-header {
+        height: 50px; /* タブレット向け */
+      }
+    }
+
+    @media (max-width: 576px) {
+      .logo-header {
+        height: 40px; /* スマホ向け */
+      }
+      
+      header {
+        margin: 10px !important; /* スマホではマージンを小さく */
+      }
+    }
+
+    /* 大画面向け */
+    @media (min-width: 1200px) {
+      .logo-header {
+        height: 70px; /* 大画面向け */
+      }
+    }
   </style>
 </head>
 <body>
- <h1 class="position-fixed mt-1 ms-1 text-white">玉録 Gyoku Log</h1>
+ <header class="position-fixed m-3 d-flex align-items-center">
+  <img src="images/logo.png" alt="玉録 GYOKU.log" class="logo-header" height="60">
+</header>
   <div id="map"></div>
 
   <!-- Bootstrap Offcanvas -->
@@ -52,8 +92,9 @@
     Loading map data...
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/7.2.0/mdb.min.js" defer></script>
   <script src="config.js"></script>
   <script src="secret.js"></script>
-  <script type="module" src="main.js"></script>
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
