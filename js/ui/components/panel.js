@@ -39,7 +39,7 @@ export function createEmptyStateMessage(message) {
  */
 export function createScrapboxLinkButton(countryCode) {
   const scrapboxLink = document.createElement('a');
-  scrapboxLink.href = `https://scrapbox.io/ko2ke-log/country:${countryCode}`;
+  scrapboxLink.href = `https://scrapbox.io/gyoku-log/cc${countryCode}`;
   scrapboxLink.innerHTML = `<i class="bi bi-box-arrow-up-right me-1"></i>Scrapboxで詳細を見る`;
   scrapboxLink.target = '_blank';
   scrapboxLink.className = 'btn btn-outline-info d-block mx-auto mt-4';

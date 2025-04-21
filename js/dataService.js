@@ -6,14 +6,14 @@ const mockScrapboxData = {
       image: "https://images.unsplash.com/photo-1503899036084-c55cdd92da26",
       preview: "from [blog]:2025-03-10\n日本の首都である東京を訪れた際の記録です...",
       blogDate: "2025-03-10",
-      url: "https://scrapbox.io/ko2ke-log/東京の思い出"
+      url: "https://scrapbox.io/gyoku-log/東京の思い出"
     },
     {
       title: "京都旅行2024",
       image: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e",
       preview: "from [blog]:2025-02-15\n歴史ある寺社仏閣が多く残る京都...",
       blogDate: "2025-02-15",
-      url: "https://scrapbox.io/ko2ke-log/京都旅行2024"
+      url: "https://scrapbox.io/gyoku-log/京都旅行2024"
     }
   ],
   "US": [
@@ -22,7 +22,7 @@ const mockScrapboxData = {
       image: "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9",
       preview: "from [blog]:2025-01-05\nマンハッタンを中心に、自由の女神やセントラルパークなど...",
       blogDate: "2025-01-05",
-      url: "https://scrapbox.io/ko2ke-log/ニューヨーク観光"
+      url: "https://scrapbox.io/gyoku-log/ニューヨーク観光"
     }
   ]
 };
@@ -67,21 +67,21 @@ export async function fetchScrapboxArticles(countryCode) {
     // 指定されたCORSプロキシを使用
     const proxyUrl = 'https://cors-ploxy.desunokora527.workers.dev/';
     
-    // まず、country:${countryCode}ページのJSONデータを取得
-    const pageUrl = `https://scrapbox.io/api/pages/ko2ke-log/country:${countryCode}`;
+    // まず、cc${countryCode}ページのJSONデータを取得
+    const pageUrl = `https://scrapbox.io/api/pages/gyoku-log/cc${countryCode}`;
     console.log(`国ページURL: ${pageUrl}`);
     
     const pageResponse = await fetch(proxyUrl + pageUrl);
     
     // 404エラーは静かに処理（ページが存在しないだけなので警告なし）
     if (pageResponse.status === 404) {
-      console.log(`country:${countryCode}ページは存在しません`);
+      console.log(`cc${countryCode}ページは存在しません`);
       return [];
     }
     
     // その他のエラーは引き続き記録
     if (!pageResponse.ok) {
-      console.error(`country:${countryCode}ページの取得に失敗しました`, pageResponse.status);
+      console.error(`cc${countryCode}ページの取得に失敗しました`, pageResponse.status);
       return [];
     }
     
@@ -89,15 +89,15 @@ export async function fetchScrapboxArticles(countryCode) {
     
     // relatedPages.links1hopから関連記事を抽出
     if (!pageData.relatedPages || !pageData.relatedPages.links1hop || pageData.relatedPages.links1hop.length === 0) {
-      console.log(`country:${countryCode}に関連するページはありません`);
+      console.log(`cc${countryCode}に関連するページはありません`);
       return [];
     }
 
     // links1hopの各エントリを処理して、blogタグを持つもののみをフィルタリング
     const blogArticles = pageData.relatedPages.links1hop
       .filter(link => {
-        // country:で始まるタイトルは除外
-        if (link.title.startsWith('country:')) return false;
+        // ccで始まるタイトルは除外
+        if (link.title.startsWith('cc')) return false;
         
         // ページがdescriptionsを持っていない場合は除外
         if (!link.descriptions || link.descriptions.length === 0) return false;
@@ -136,8 +136,8 @@ export async function fetchScrapboxArticles(countryCode) {
             // gyazoリンクを含む行を除外（ドメインで判定）
             if (/\[https?:\/\/.*?gyazo\.com/i.test(desc)) return false;
             
-            // country:リンクを除外
-            if (desc.startsWith('[country:')) return false;
+            // ccリンクを除外
+            if (desc.startsWith('[cc')) return false;
             
             // blogタグを含む行を除外
             if (desc.includes('[blog]:')) return false;
@@ -152,7 +152,7 @@ export async function fetchScrapboxArticles(countryCode) {
           image: imageUrl,
           preview: preview,
           blogDate: blogDate,
-          url: `https://scrapbox.io/ko2ke-log/${encodeURIComponent(link.title)}`
+          url: `https://scrapbox.io/gyoku-log/${encodeURIComponent(link.title)}`
         };
       });
     
