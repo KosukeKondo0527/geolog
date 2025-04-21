@@ -36,16 +36,32 @@
       width: 100%;
     }
 
-    /* ロゴのスタイリング */
+    /* ロゴの背景スタイリング */
+    .logo-background {
+      background-color: rgba(40, 40, 40, 0.7); /* 濃いグレー、70%不透明 */
+      border-radius: 12px; /* 角の丸み */
+      padding: 8px 16px; /* 内側の余白 */
+      display: flex;
+      align-items: center;
+      backdrop-filter: blur(2px); /* 背景をわずかにぼかす効果（対応ブラウザのみ） */
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); /* 微妙な影を追加 */
+      transition: all 0.3s ease;
+    }
+
+    .logo-background:hover {
+      background-color: rgba(50, 50, 50, 0.8); /* ホバー時に少し濃く */
+    }
+
+    /* 既存のロゴスタイルの調整 */
     .logo-header {
-      filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.8));
+      filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.5));
       transition: all 0.2s ease;
       height: 60px; /* 基本サイズ */
       width: auto;
     }
 
     .logo-header:hover {
-      filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.6));
+      filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.4));
     }
 
     /* 画面サイズに応じた調整 */
@@ -53,11 +69,18 @@
       .logo-header {
         height: 50px; /* タブレット向け */
       }
+      .logo-background {
+        padding: 6px 12px; /* タブレット向けにパディング縮小 */
+      }
     }
 
     @media (max-width: 576px) {
       .logo-header {
         height: 40px; /* スマホ向け */
+      }
+      .logo-background {
+        padding: 5px 10px; /* スマホ向けにパディングをさらに縮小 */
+        border-radius: 10px; /* スマホでは角の丸みを少し小さく */
       }
       
       header {
@@ -74,8 +97,10 @@
   </style>
 </head>
 <body>
- <header class="position-fixed m-3 d-flex align-items-center">
-  <img src="images/logo.png" alt="玉録 GYOKU.log" class="logo-header" height="60">
+<header class="position-fixed m-3 d-flex align-items-center" style="z-index: 1000;">
+  <div class="logo-background">
+    <img src="images/logo.png" alt="玉録 GYOKU.log" class="logo-header" height="60">
+  </div>
 </header>
   <div id="map"></div>
 
