@@ -271,7 +271,7 @@
 
   <script>
     const clientId = "963b4c40415323f"; // ImgurのClient ID
-    const openCageApiKey = "YOUR_OPENCAGE_API_KEY"; // OpenCage APIキー
+    const openCageApiKey = "b0e9afc5cded4674b1420610d401adbd"; // OpenCage APIキー
     const scrapboxProject = "gyoku-log"; // Scrapboxのプロジェクト名
     
     // ファイル情報を表示
@@ -469,14 +469,21 @@
     }
 
     async function getCountryFromCoords(lat, lon) {
-      return "Turkey";  // ダミーデータ
-      // 実際のAPIを使用する場合は以下のコードを利用
-      /*
-      if (!lat || !lon) return "Unknown";
-      const res = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lon}&key=${openCageApiKey}`);
-      const data = await res.json();
-      return data.results[0]?.components?.country || "Unknown";
-      */
+      if (!lat || !lon) return { name: "Unknown", code: "XX" };
+      
+      try {
+        const res = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lon}&key=${openCageApiKey}`);
+        const data = await res.json();
+        
+        // 国名と国コード(ISO 3166-1 alpha-2)の両方を取得
+        const countryName = data.results[0]?.components?.country || "Unknown";
+        const countryCode = data.results[0]?.components?.["ISO_3166-1_alpha-2"] || "XX";
+        
+        return { name: countryName, code: countryCode.toUpperCase() };  // コードを大文字で返す
+      } catch (error) {
+        console.error("位置情報から国情報の取得に失敗:", error);
+        return { name: "Unknown", code: "XX" };
+      }
     }
 
     async function copyToClipboard(button) {
@@ -549,24 +556,26 @@
           updateProgress(currentProgress, `Uploading photo ${i+1} to Imgur...`);
           const imgUrl = await uploadToImgur(file);
           
-          // 座標から国を取得
           updateProgress(currentProgress, `Getting location info for photo ${i+1}...`);
           const mapUrl = (latitude && longitude) ? `https://maps.google.com/?q=${latitude},${longitude}` : 'No location data';
-          const country = await getCountryFromCoords(latitude, longitude);
-
+          const countryInfo = await getCountryFromCoords(latitude, longitude);
+          
           const dateOnly = date.split(' ')[0];
-          const countrySafe = country.replace(/\s+/g, '');
-          const pageKey = `${countrySafe}/${dateOnly}`;
-
-          // ブロック作成
+          // ページキーには国名を使用（ページタイトルに影響）
+          const pageKey = `${countryInfo.name}/${dateOnly}`;
+          
           const block = [
             `Photo date: ${date}`,
             `Google Maps: ${mapUrl}`,
             `[${imgUrl}]`, 
-            `[cc${countrySafe}]`
+            `[cc${countryInfo.code}]` // 大文字の国コードを使用
           ].join("\n");
-
-          if (!grouped[pageKey]) grouped[pageKey] = { country, date: dateOnly, blocks: [] };
+          
+          if (!grouped[pageKey]) grouped[pageKey] = { 
+            country: countryInfo.name, 
+            date: dateOnly, 
+            blocks: [] 
+          };
           grouped[pageKey].blocks.push(block);
           
           // プレビュー表示
