@@ -1,3 +1,5 @@
+import { lookupCountryFromCoords } from '../../geo/locationService.js';
+
 /**
  * オフキャンバスパネルを表示する
  * @param {string} id - パネルのID
@@ -33,15 +35,52 @@ export function createEmptyStateMessage(message) {
 }
 
 /**
- * Scrapboxリンクボタンを作成する
- * @param {string} countryCode - 国コード
- * @returns {HTMLElement} - リンクボタン
+ * 現在地情報をlocalStorageから取得
+ * @returns {Object|null} 現在地情報またはnull
  */
-export function createScrapboxLinkButton(countryCode) {
-  const scrapboxLink = document.createElement('a');
-  scrapboxLink.href = `https://scrapbox.io/gyoku-log/cc${countryCode}`;
-  scrapboxLink.innerHTML = `<i class="bi bi-box-arrow-up-right me-1"></i>Scrapboxで詳細を見る`;
-  scrapboxLink.target = '_blank';
-  scrapboxLink.className = 'btn btn-outline-info d-block mx-auto mt-4';
-  return scrapboxLink;
+function getLocationFromCache() {
+  const cached = localStorage.getItem('currentLocationData');
+  if (cached) {
+    try {
+      const data = JSON.parse(cached);
+      // キャッシュの有効期限を24時間とする
+      if (data.timestamp && (Date.now() - data.timestamp < 24 * 60 * 60 * 1000)) {
+        return data;
+      }
+    } catch (e) {
+      console.error('キャッシュデータの解析エラー:', e);
+    }
+  }
+  return null;
+}
+
+/**
+ * 現在地情報をlocalStorageに保存
+ * @param {string} countryCode - 国コード
+ * @param {string} countryName - 国名（オプション）
+ */
+function saveLocationToCache(countryCode, countryName = '') {
+  const data = {
+    countryCode,
+    countryName,
+    timestamp: Date.now()
+  };
+  localStorage.setItem('currentLocationData', JSON.stringify(data));
+}
+
+/**
+ * ISO 8601準拠のUTCオフセット文字列を返す
+ * @returns {string} UTC±HH:MM形式のタイムゾーン文字列
+ */
+function getISOTimezoneOffset() {
+  const date = new Date();
+  const offsetMinutes = date.getTimezoneOffset();
+  const absOffsetMinutes = Math.abs(offsetMinutes);
+  
+  const hours = Math.floor(absOffsetMinutes / 60);
+  const minutes = absOffsetMinutes % 60;
+  
+  const sign = offsetMinutes <= 0 ? '+' : '-';
+  
+  return `${sign}${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }

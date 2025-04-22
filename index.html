@@ -13,6 +13,9 @@
   <!-- Bootstrap JS追加 -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   
+  <!-- Bootstrap Iconsの追加（CDNリンクをhead内に追加する必要があります） -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  
   <style>
     body {
       margin: 0;
@@ -94,6 +97,36 @@
         height: 70px; /* 大画面向け */
       }
     }
+
+    /* 現在地メニューのスタイル */
+    .location-menu {
+      transition: opacity 0.2s ease;
+    }
+
+    /* 現在地ボタンのスタイル */
+    #locationBtn button {
+      background-color: rgba(40, 40, 40, 0.7);
+      backdrop-filter: blur(2px);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+    }
+    
+    #locationBtn button:hover {
+      background-color: rgba(50, 50, 50, 0.8);
+      transform: scale(1.02);
+    }
+    
+    /* モバイル対応 */
+    @media (max-width: 576px) {
+      #locationBtn {
+        margin: 10px !important;
+      }
+      
+      #locationBtn button {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -102,6 +135,18 @@
     <img src="images/logo.png" alt="玉録 GYOKU.log" class="logo-header" height="60">
   </div>
 </header>
+
+<!-- 現在地ボタン - マップ右上に追加 -->
+<div id="locationBtn" class="position-fixed top-0 end-0 m-3 d-flex flex-column" style="z-index: 1000;">
+  <button class="btn btn-dark border-secondary rounded-pill shadow-sm d-flex align-items-center mb-2" type="button" id="currentLocationButton">
+    <i class="bi bi-geo-alt me-2"></i>
+    <span id="locationDisplayText">現在地を取得</span>
+  </button>
+  
+  <!-- Write Logボタンはここに動的に追加される -->
+  <div id="writeLogBtnContainer"></div>
+</div>
+
   <div id="map"></div>
 
   <!-- Bootstrap Offcanvas -->
@@ -115,6 +160,11 @@
 
   <div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center bg-dark bg-opacity-75 text-white fs-4">
     Loading map data...
+  </div>
+
+  <!-- トースト通知用のコンテナ -->
+  <div class="toast-container position-fixed bottom-0 start-50 translate-middle-x mb-4" id="toastContainer">
+    <!-- トーストがここに動的に追加される -->
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/7.2.0/mdb.min.js" defer></script>

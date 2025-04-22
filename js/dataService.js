@@ -87,80 +87,90 @@ export async function fetchScrapboxArticles(countryCode) {
     
     const pageData = await pageResponse.json();
     
-    // relatedPages.links1hopから関連記事を抽出
-    if (!pageData.relatedPages || !pageData.relatedPages.links1hop || pageData.relatedPages.links1hop.length === 0) {
-      console.log(`cc${countryCode}に関連するページはありません`);
-      return [];
-    }
-
-    // links1hopの各エントリを処理して、blogタグを持つもののみをフィルタリング
+    // links1hopの各エントリを処理して、画像を持つもののみをフィルタリング
     const blogArticles = pageData.relatedPages.links1hop
       .filter(link => {
         // ccで始まるタイトルは除外
         if (link.title.startsWith('cc')) return false;
         
-        // ページがdescriptionsを持っていない場合は除外
-        if (!link.descriptions || link.descriptions.length === 0) return false;
-        
-        // descriptionsの中にblogタグを持つものがあるか検索
-        const hasBlogTag = link.descriptions.some(desc => desc.includes('[blog]:'));
-        
-        return hasBlogTag;
+        // 画像があるかどうかをチェック
+        return link.image && link.image.trim() !== '';
       })
       .map(link => {
-        // ブログ日付を抽出
+        // ブログ日付を抽出 (あれば使用)
         let blogDate = null;
-        for (const desc of link.descriptions) {
-          const match = desc.match(/\[blog\]:\[(\d{4}-\d{2}-\d{2})\]/);
-          if (match && match[1]) {
-            blogDate = match[1];
-            break;
+        if (link.descriptions && link.descriptions.length > 0) {
+          for (const desc of link.descriptions) {
+            const match = desc.match(/\[blog\]:\[(\d{4}-\d{2}-\d{2})\]/);
+            if (match && match[1]) {
+              blogDate = match[1];
+              break;
+            }
           }
         }
         
-        // blogDateが見つからない場合（通常はここには来ないはず）
-        if (!blogDate) {
-          console.warn(`ブログ日付が見つかりませんでした: ${link.title}`);
-          blogDate = '1970-01-01'; // フォールバック日付
+        // blogDateが見つからない場合は作成日時を使用
+        if (!blogDate && link.created) {
+          const createdDate = new Date(link.created * 1000); // Unix timestampをDateオブジェクトに変換
+          const year = createdDate.getFullYear();
+          const month = String(createdDate.getMonth() + 1).padStart(2, '0');
+          const day = String(createdDate.getDate()).padStart(2, '0');
+          blogDate = `${year}-${month}-${day}`;
         }
         
-        // 画像URL（すでにlinkオブジェクトに含まれている）
-        const imageUrl = link.image || '';
+        // それでも日付がない場合は現在日付をデフォルトとする
+        if (!blogDate) {
+          const today = new Date();
+          const year = today.getFullYear();
+          const month = String(today.getMonth() + 1).padStart(2, '0');
+          const day = String(today.getDate()).padStart(2, '0');
+          blogDate = `${year}-${month}-${day}`;
+        }
+        
+        // 画像URL（必ず存在する）
+        const imageUrl = link.image;
         
         // 説明文の処理
-        const preview = link.descriptions
-          .filter(desc => {
-            // 画像リンクを含む行を除外（拡張子で判定）
-            if (/\[https?:\/\/.*?\.(png|jpg|jpeg|gif)]/i.test(desc)) return false;
-            
-            // gyazoリンクを含む行を除外（ドメインで判定）
-            if (/\[https?:\/\/.*?gyazo\.com/i.test(desc)) return false;
-            
-            // ccリンクを除外
-            if (desc.startsWith('[cc')) return false;
-            
-            // blogタグを含む行を除外
-            if (desc.includes('[blog]:')) return false;
-            
-            return true;
-          })
-          .join(' ')
-          .substring(0, 100) + '...';
+        let preview = '内容がありません...';
+        if (link.descriptions && link.descriptions.length > 0) {
+          // 複数の説明文を結合
+          preview = link.descriptions
+            .filter(desc => {
+              // 画像リンクを含む行を除外
+              if (/\[https?:\/\/.*?\.(png|jpg|jpeg|gif)]/i.test(desc)) return false;
+              
+              // gyazoリンクを含む行を除外
+              if (/\[https?:\/\/.*?gyazo\.com/i.test(desc)) return false;
+              
+              // country:リンクを除外
+              if (desc.startsWith('[cc')) return false;
+              
+              // blogタグを含む行を除外
+              if (desc.includes('[blog]:')) return false;
+              
+              return true;
+            })
+            .join(' ')
+            .substring(0, 100) + '...';
+        }
         
         return {
           title: link.title,
           image: imageUrl,
           preview: preview,
           blogDate: blogDate,
+          // 作成日のUnixタイムスタンプも保持（ソート用）
+          created: link.created || 0,
           url: `https://scrapbox.io/gyoku-log/${encodeURIComponent(link.title)}`
         };
       });
     
-    // 日付でソート（新しい順）
+    // 日付でソート（blogDateが同じ場合は作成日でソート）
     blogArticles.sort((a, b) => {
       if (a.blogDate > b.blogDate) return -1;
       if (a.blogDate < b.blogDate) return 1;
-      return 0;
+      // blogDateが同じ場合は作成日の降順
+      return b.created - a.created;
     });
     
     return blogArticles;

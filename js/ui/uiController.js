@@ -1,6 +1,7 @@
 import { fetchScrapboxArticles } from '../dataService.js';
 import { createBlogCard, createCardWrapper } from './components/card.js';
-import { showOffcanvasPanel, createEmptyStateMessage, createScrapboxLinkButton } from './components/panel.js';
+import { showOffcanvasPanel, createEmptyStateMessage } from './components/panel.js';
+import { createScrapboxLinkButton, createCurrentLocationButton } from './components/buttons.js';
 import { createLoadingSpinner, toggleLoadingOverlay } from './components/loader.js';
 
 /**
@@ -33,7 +34,17 @@ export function setupMapEvents(map) {
 async function showCountryPanel(name, code) {
   const panelTitle = document.getElementById('panelTitle');
   const panelBody = document.getElementById('panelBody');
-  panelTitle.innerText = name;
+  
+  // タイトル部分に国名と国旗を表示
+  panelTitle.innerHTML = `
+    <div class="d-flex align-items-center">
+      <img src="https://flagcdn.com/w40/${code.toLowerCase()}.png" 
+           alt="${name} flag" 
+           class="me-2 border" 
+           style="height: 24px; width: auto;">
+      <span>${name}</span>
+    </div>
+  `;
   
   // ローディング表示
   panelBody.innerHTML = '';
@@ -56,8 +67,11 @@ async function showCountryPanel(name, code) {
     panelBody.appendChild(createEmptyStateMessage('この国の投稿はありません。'));
   }
   
-  // Scrapboxへのリンク
-  panelBody.appendChild(createScrapboxLinkButton(code));
+  // Scrapboxへのリンクボタン
+  panelBody.appendChild(createScrapboxLinkButton(code, name));
+  
+  // 現在地リンクボタン（オプション）
+  // panelBody.appendChild(createCurrentLocationButton());
 }
 
 /**
