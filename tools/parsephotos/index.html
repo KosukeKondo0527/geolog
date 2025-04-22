@@ -2,27 +2,314 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Scrapbox向け写真ツール</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Photo Caption Generator</title>
   <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body { font-family: sans-serif; padding: 1em; }
-    .entry { margin-bottom: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 1em; }
-    textarea { width: 100%; height: 150px; margin-top: 0.5em; font-family: monospace; }
-    button.copy-button { margin-top: 0.5em; cursor: pointer; }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 1em;
+      background-color: #f8f9fa;
+      color: #333;
+      line-height: 1.6;
+      margin: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    h1 {
+      font-weight: 300;
+      color: #2c3e50;
+      margin-bottom: 5px;
+      font-size: 2.5rem;
+    }
+    .tagline {
+      color: #7f8c8d;
+      font-size: 1.1rem;
+      margin-top: 0;
+    }
+    .upload-area {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    #photoInput {
+      display: none;
+    }
+    .file-label {
+      background-color: #3498db;
+      color: white;
+      padding: 15px 25px;
+      border-radius: 50px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      display: inline-block;
+      margin-bottom: 15px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .file-label:hover {
+      background-color: #2980b9;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+    }
+    .file-label:active {
+      transform: translateY(0);
+    }
+    .file-selected {
+      font-size: 0.9rem;
+      color: #666;
+      margin: 10px 0;
+    }
+    .process-button {
+      background-color: #2ecc71;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 1.2rem;
+      border-radius: 50px;
+      cursor: pointer;
+      margin: 20px auto;
+      display: block;
+      width: 80%;
+      max-width: 300px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .process-button:hover {
+      background-color: #27ae60;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+    }
+    .process-button:active {
+      transform: translateY(0);
+    }
+    .process-button:disabled {
+      background-color: #95a5a6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .entry {
+      margin-bottom: 2em;
+      border: 1px solid #e1e1e1;
+      border-radius: 8px;
+      padding: 1.5em;
+      background-color: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .entry h3 {
+      margin-top: 0;
+      color: #2c3e50;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    textarea {
+      width: 100%;
+      height: 150px;
+      margin-top: 0.5em;
+      font-family: monospace;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .copy-button {
+      background-color: #34495e;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+      min-height: 44px;
+      transition: background-color 0.3s;
+    }
+    .copy-button:hover {
+      background-color: #2c3e50;
+    }
+    .preview-image {
+      margin: 15px 0;
+      text-align: center;
+    }
+    .preview-image img {
+      max-width: 200px;
+      max-height: 200px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h4 {
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+    #results {
+      margin-top: 30px;
+    }
+    
+    /* オーバーレイスタイル */
+    #processingOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      color: white;
+      backdrop-filter: blur(3px);
+    }
+    .overlay-content {
+      text-align: center;
+      padding: 20px;
+    }
+    .progress-container {
+      width: 80%;
+      max-width: 400px;
+      background-color: #444;
+      border-radius: 10px;
+      margin: 20px auto;
+      height: 15px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background-color: #3498db;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .status-text {
+      margin-top: 15px;
+      font-size: 1.1rem;
+    }
+    .spinner {
+      border: 5px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 5px solid #3498db;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* モバイル対応 */
+    @media (max-width: 576px) {
+      h1 {
+        font-size: 2rem;
+      }
+      .file-label, .process-button {
+        width: 100%;
+        padding: 12px 20px;
+      }
+      .copy-button {
+        width: 100%;
+        padding: 12px 20px;
+      }
+      .container {
+        padding: 10px;
+      }
+    }
+    
+    /* iOSデバイス向けの追加スタイル */
+    @supports (-webkit-touch-callout: none) {
+      .copy-button {
+        -webkit-appearance: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>Scrapbox向け 写真情報整形ツール（逆ジオ対応）</h1>
-  <p>写真を選んでください（複数可）:</p>
-  <input type="file" id="photoInput" multiple accept="image/*">
-  <br>
-  <button onclick="processPhotos()">処理開始</button>
-  <div id="results"></div>
+  <div class="container">
+    <header>
+      <h1>PHOTO CAPTION GENERATOR</h1>
+      <p class="tagline">Create beautiful captions from your photos for Scrapbox</p>
+    </header>
+    
+    <div class="upload-area">
+      <label for="photoInput" class="file-label">
+        <i class="fas fa-cloud-upload-alt"></i> Select Photos
+      </label>
+      <input type="file" id="photoInput" multiple accept="image/*" onchange="updateFileInfo()">
+      <div class="file-selected" id="fileInfo">No files selected</div>
+    </div>
+    
+    <button id="processBtn" class="process-button" onclick="processPhotos()">
+      <i class="fas fa-magic"></i> Process Photos
+    </button>
+    
+    <div id="results"></div>
+  </div>
+  
+  <!-- 処理中のオーバーレイ -->
+  <div id="processingOverlay">
+    <div class="overlay-content">
+      <h2>Processing Photos</h2>
+      <div class="spinner"></div>
+      <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="status-text" id="statusText">Preparing...</div>
+    </div>
+  </div>
 
   <script>
-    const clientId = "963b4c40415323f"; // ImgurのClient IDをここに入れる
-    const openCageApiKey = "YOUR_OPENCAGE_API_KEY"; // OpenCage APIキーをここに入れる
+    const clientId = "963b4c40415323f"; // ImgurのClient ID
+    const openCageApiKey = "YOUR_OPENCAGE_API_KEY"; // OpenCage APIキー
     const scrapboxProject = "gyoku-log"; // Scrapboxのプロジェクト名
+    
+    // ファイル情報を表示
+    function updateFileInfo() {
+      const input = document.getElementById('photoInput');
+      const fileInfo = document.getElementById('fileInfo');
+      
+      if (input.files.length > 0) {
+        fileInfo.textContent = `${input.files.length} ${input.files.length === 1 ? 'file' : 'files'} selected`;
+        document.getElementById('processBtn').disabled = false;
+      } else {
+        fileInfo.textContent = 'No files selected';
+        document.getElementById('processBtn').disabled = true;
+      }
+    }
+    
+    // 処理中オーバーレイの表示/非表示
+    function toggleOverlay(show, statusText = '') {
+      const overlay = document.getElementById('processingOverlay');
+      if (show) {
+        overlay.style.display = 'flex';
+        if (statusText) {
+          document.getElementById('statusText').textContent = statusText;
+        }
+      } else {
+        overlay.style.display = 'none';
+      }
+    }
+    
+    // 進捗バーの更新
+    function updateProgress(percent, statusText = '') {
+      const progressBar = document.getElementById('progressBar');
+      progressBar.style.width = `${percent}%`;
+      
+      if (statusText) {
+        document.getElementById('statusText').textContent = statusText;
+      }
+    }
 
     function getExifData(file) {
       return new Promise((resolve) => {
@@ -66,66 +353,131 @@
         body: formData
       });
       const data = await res.json();
-      return data.data.link;
+      console.log("Imgurが返したURL:", data.data.link);
+      
+      // 返されるURLが拡張子を持っているか確認
+      let imageUrl = data.data.link;
+      if (!imageUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+        // 拡張子がない場合は.jpgを追加
+        imageUrl = imageUrl + '.jpg';
+      }
+      
+      return imageUrl;
     }
 
     async function getCountryFromCoords(lat, lon) {
-      return "Turkey"
+      return "Turkey";  // ダミーデータ
+      // 実際のAPIを使用する場合は以下のコードを利用
+      /*
       if (!lat || !lon) return "Unknown";
       const res = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lon}&key=${openCageApiKey}`);
       const data = await res.json();
       return data.results[0]?.components?.country || "Unknown";
+      */
+    }
+
+    async function copyToClipboard(button) {
+      const textarea = button.previousElementSibling.previousElementSibling;
+      
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(textarea.value);
+        } else {
+          textarea.select();
+          const success = document.execCommand("copy");
+          if (!success) throw new Error('Copy command failed');
+        }
+        button.textContent = "✅ Copied!";
+      } catch (err) {
+        console.error('Failed to copy:', err);
+        textarea.focus();
+        textarea.select();
+        button.textContent = "Tap to copy manually";
+        alert("Text selected. Please tap 'Copy' in your browser menu.");
+      }
+      
+      setTimeout(() => button.textContent = "📋 Copy", 2000);
     }
 
     function createEntryHTML(scrapboxUrl, pageTitle, textBlock) {
       const div = document.createElement("div");
       div.className = "entry";
       div.innerHTML = `
-        <h3>Scrapboxページ: <a href="${scrapboxUrl}" target="_blank">${pageTitle}</a></h3>
+        <h3>Scrapbox Page: <a href="${scrapboxUrl}" target="_blank">${pageTitle}</a></h3>
         <textarea readonly>${textBlock}</textarea>
         <br>
-        <button class="copy-button" onclick="copyToClipboard(this)">📋 コピー</button>
+        <button class="copy-button" onclick="copyToClipboard(this)">📋 Copy</button>
       `;
       return div;
-    }
-
-    function copyToClipboard(button) {
-      const textarea = button.previousElementSibling;
-      textarea.select();
-      document.execCommand("copy");
-      button.textContent = "✅ コピー完了";
-      setTimeout(() => button.textContent = "📋 コピー", 1500);
     }
 
     async function processPhotos() {
       const input = document.getElementById('photoInput');
       const results = document.getElementById('results');
+      const processBtn = document.getElementById('processBtn');
+      
+      if (input.files.length === 0) {
+        alert("Please select photos first!");
+        return;
+      }
+      
+      // 処理開始
       results.innerHTML = "";
+      processBtn.disabled = true;
+      toggleOverlay(true, "Preparing to process photos...");
+      
       const files = [...input.files];
-
+      const totalFiles = files.length;
       const grouped = {};
 
-      for (let file of files) {
-        const { date, latitude, longitude } = await getExifData(file);
-        const imgUrl = await uploadToImgur(file);
-        const mapUrl = (latitude && longitude) ? `https://maps.google.com/?q=${latitude},${longitude}` : '位置情報なし';
-        const country = await getCountryFromCoords(latitude, longitude);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const currentProgress = Math.round((i / totalFiles) * 100);
+        
+        // 進捗状況を更新
+        updateProgress(currentProgress, `Processing photo ${i+1} of ${totalFiles}...`);
+        
+        try {
+          // EXIFデータ取得
+          updateProgress(currentProgress, `Reading metadata from photo ${i+1}...`);
+          const { date, latitude, longitude } = await getExifData(file);
+          
+          // Imgurにアップロード
+          updateProgress(currentProgress, `Uploading photo ${i+1} to Imgur...`);
+          const imgUrl = await uploadToImgur(file);
+          
+          // 座標から国を取得
+          updateProgress(currentProgress, `Getting location info for photo ${i+1}...`);
+          const mapUrl = (latitude && longitude) ? `https://maps.google.com/?q=${latitude},${longitude}` : 'No location data';
+          const country = await getCountryFromCoords(latitude, longitude);
 
-        const dateOnly = date.split(' ')[0];
-        const countrySafe = country.replace(/\s+/g, '');
-        const pageKey = `${countrySafe}/${dateOnly}`;
+          const dateOnly = date.split(' ')[0];
+          const countrySafe = country.replace(/\s+/g, '');
+          const pageKey = `${countrySafe}/${dateOnly}`;
 
-        const block = [
-          `撮影日時: ${date}`,
-          `Googleマップ: ${mapUrl}`,
-          `[${imgUrl}]`,
-          `[cc${countrySafe}]`
-        ].join("\n");
+          // ブロック作成
+          const block = [
+            `Photo date: ${date.replace(/:/g, '-')}`,
+            `Google Maps: ${mapUrl}`,
+            `[${imgUrl}]`, 
+            `[cc${countrySafe}]`
+          ].join("\n");
 
-        if (!grouped[pageKey]) grouped[pageKey] = { country, date: dateOnly, blocks: [] };
-        grouped[pageKey].blocks.push(block);
+          if (!grouped[pageKey]) grouped[pageKey] = { country, date: dateOnly, blocks: [] };
+          grouped[pageKey].blocks.push(block);
+          
+          // プレビュー表示
+          updateProgress(currentProgress, `Creating preview for photo ${i+1}...`);
+        } catch (error) {
+          console.error(`Error processing photo ${i+1}:`, error);
+          updateProgress(currentProgress, `Error processing photo ${i+1}. Continuing...`);
+        }
       }
 
+      // 結果生成
+      updateProgress(95, "Generating final results...");
+      
+      // プレビュー表示
       for (let key of Object.keys(grouped).sort()) {
         const group = grouped[key];
         const scrapboxPageTitle = `${group.country}/${group.date}`;
@@ -135,7 +487,22 @@
         const entryHTML = createEntryHTML(scrapboxUrl, scrapboxPageTitle, textBlock);
         results.appendChild(entryHTML);
       }
+      
+      // 処理完了
+      updateProgress(100, "Processing complete!");
+      setTimeout(() => {
+        toggleOverlay(false);
+        processBtn.disabled = false;
+        
+        // 結果までスクロール
+        if (results.childElementCount > 0) {
+          results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 1000);
     }
+    
+    // 初期化
+    document.getElementById('processBtn').disabled = true;
   </script>
 </body>
 </html>
