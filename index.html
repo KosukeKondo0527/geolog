@@ -127,6 +127,31 @@
         font-size: 0.875rem;
       }
     }
+
+    /* モバイル対応 - 画面下部中央に表示 */
+    @media (max-width: 576px) {
+      #locationBtn {
+        /* 右上から下部中央に変更 */
+        top: auto !important;
+        right: auto !important;
+        bottom: 20px !important;
+        left: 50% !important;
+        transform: translateX(-50%);
+        margin: 0 !important;
+        flex-direction: row !important; /* 横並びに変更 */
+        gap: 10px; /* ボタン間の間隔 */
+      }
+      
+      #locationBtn button {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+      }
+      
+      /* モバイルでは下部マージン不要 */
+      #currentLocationButton {
+        margin-bottom: 0 !important;
+      }
+    }
   </style>
 </head>
 <body>

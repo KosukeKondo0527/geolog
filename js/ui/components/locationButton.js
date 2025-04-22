@@ -245,10 +245,16 @@ function createWriteLogButton(container, locationData) {
   
   // 新しいボタンを作成
   const writeLogBtn = document.createElement('button');
-  writeLogBtn.className = 'btn btn-success btn-sm rounded-pill shadow-sm d-flex align-items-center justify-content-center';
+  
+  // レスポンシブなクラス名設定
+  const isMobile = window.matchMedia('(max-width: 576px)').matches;
+  
+  // モバイルならより小さなボタンに
+  writeLogBtn.className = `btn btn-success ${isMobile ? 'btn-sm' : 'btn-sm'} rounded-pill shadow-sm d-flex align-items-center justify-content-center`;
+  
   writeLogBtn.innerHTML = `
-    <i class="bi bi-pencil-fill me-2"></i>
-    <span>Write Log</span>
+    <i class="bi bi-pencil-fill ${isMobile ? '' : 'me-2'}"></i>
+    <span ${isMobile ? 'class="d-none d-sm-inline"' : ''}>Write Log</span>
   `;
   
   // クリックイベント
