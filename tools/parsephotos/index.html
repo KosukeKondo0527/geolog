@@ -312,32 +312,135 @@
     }
 
     function getExifData(file) {
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
+        console.log(`EXIFデータの読み取りを開始: ${file.name}`);
+        
+        // タイムアウト処理を追加
+        const timeout = setTimeout(() => {
+          console.warn(`${file.name}のEXIF読み取りがタイムアウトしました`);
+          resolve({
+            date: new Date().toISOString().replace('T', ' ').split('.')[0], // 現在時刻をフォールバックとして使用
+            latitude: null,
+            longitude: null,
+            errorMessage: 'EXIFデータ読み取りタイムアウト'
+          });
+        }, 10000); // 10秒でタイムアウト
+        
         const reader = new FileReader();
-        reader.onload = function(e) {
-          const img = new Image();
-          img.onload = function() {
-            EXIF.getData(img, function() {
-              const date = EXIF.getTag(this, 'DateTimeOriginal') || '不明';
-              const lat = EXIF.getTag(this, 'GPSLatitude');
-              const lon = EXIF.getTag(this, 'GPSLongitude');
-              const latRef = EXIF.getTag(this, 'GPSLatitudeRef') || 'N';
-              const lonRef = EXIF.getTag(this, 'GPSLongitudeRef') || 'E';
-
-              function convertDMSToDD(dms, ref) {
-                const [d, m, s] = dms;
-                let dd = d + (m / 60) + (s / 3600);
-                return (ref === 'S' || ref === 'W') ? -dd : dd;
-              }
-
-              const latitude = lat ? convertDMSToDD(lat, latRef) : null;
-              const longitude = lon ? convertDMSToDD(lon, lonRef) : null;
-
-              resolve({ date, latitude, longitude });
-            });
-          };
-          img.src = e.target.result;
+        
+        reader.onerror = function(event) {
+          clearTimeout(timeout);
+          console.error("FileReader error:", event);
+          resolve({
+            date: new Date().toISOString().replace('T', ' ').split('.')[0],
+            latitude: null,
+            longitude: null,
+            errorMessage: 'ファイル読み取りエラー'
+          });
         };
+        
+        reader.onload = function(e) {
+          try {
+            console.log(`${file.name}: ファイル読み取り完了、画像を作成中...`);
+            const img = new Image();
+            
+            img.onerror = function() {
+              clearTimeout(timeout);
+              console.error(`${file.name}: 画像の読み込みに失敗`);
+              resolve({
+                date: new Date().toISOString().replace('T', ' ').split('.')[0],
+                latitude: null,
+                longitude: null,
+                errorMessage: '画像の読み込みに失敗'
+              });
+            };
+            
+            img.onload = function() {
+              console.log(`${file.name}: 画像の読み込み完了、EXIFデータ抽出中...`);
+              
+              try {
+                if (!EXIF || typeof EXIF.getData !== 'function') {
+                  throw new Error('EXIF.jsが正しく読み込まれていない');
+                }
+                
+                EXIF.getData(img, function() {
+                  clearTimeout(timeout);
+                  console.log(`${file.name}: EXIFデータ抽出完了`);
+                  
+                  try {
+                    // 日時情報の取得と正しいフォーマットへの変換
+                    let dateTimeStr = EXIF.getTag(this, 'DateTimeOriginal') || EXIF.getTag(this, 'DateTime') || '不明';
+                    
+                    if (dateTimeStr !== '不明') {
+                      // YYYY:MM:DD HH:MM:SS → YYYY-MM-DD HH:MM:SS に変換
+                      // 日付部分のみ : を - に変換（時刻部分はそのまま）
+                      dateTimeStr = dateTimeStr.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
+                    } else {
+                      // 日時不明の場合は現在時刻を使用
+                      dateTimeStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                    }
+                    
+                    // 位置情報の取得
+                    const lat = EXIF.getTag(this, 'GPSLatitude');
+                    const lon = EXIF.getTag(this, 'GPSLongitude');
+                    const latRef = EXIF.getTag(this, 'GPSLatitudeRef') || 'N';
+                    const lonRef = EXIF.getTag(this, 'GPSLongitudeRef') || 'E';
+                    
+                    function convertDMSToDD(dms, ref) {
+                      if (!dms || !Array.isArray(dms) || dms.length !== 3) {
+                        return null;
+                      }
+                      const [d, m, s] = dms;
+                      let dd = d + (m / 60) + (s / 3600);
+                      return (ref === 'S' || ref === 'W') ? -dd : dd;
+                    }
+                    
+                    const latitude = lat ? convertDMSToDD(lat, latRef) : null;
+                    const longitude = lon ? convertDMSToDD(lon, lonRef) : null;
+                    
+                    console.log(`${file.name}: 位置情報: ${latitude}, ${longitude}`);
+                    
+                    resolve({ 
+                      date: dateTimeStr,
+                      latitude: latitude, 
+                      longitude: longitude 
+                    });
+                  } catch (exifError) {
+                    console.error(`${file.name}: EXIFデータ解析エラー:`, exifError);
+                    resolve({
+                      date: new Date().toISOString().replace('T', ' ').split('.')[0],
+                      latitude: null,
+                      longitude: null,
+                      errorMessage: 'EXIFデータ解析エラー'
+                    });
+                  }
+                });
+              } catch (exifLibError) {
+                clearTimeout(timeout);
+                console.error(`${file.name}: EXIF.js呼び出しエラー:`, exifLibError);
+                resolve({
+                  date: new Date().toISOString().replace('T', ' ').split('.')[0],
+                  latitude: null,
+                  longitude: null,
+                  errorMessage: 'EXIF.js呼び出しエラー'
+                });
+              }
+            };
+            
+            img.src = e.target.result;
+          } catch (generalError) {
+            clearTimeout(timeout);
+            console.error(`${file.name}: 一般的なエラー:`, generalError);
+            resolve({
+              date: new Date().toISOString().replace('T', ' ').split('.')[0],
+              latitude: null,
+              longitude: null,
+              errorMessage: '不明なエラー'
+            });
+          }
+        };
+        
+        // 読み込み開始
         reader.readAsDataURL(file);
       });
     }
