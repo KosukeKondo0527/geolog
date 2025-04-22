@@ -365,7 +365,7 @@ async function openScrapboxWithLocation(existingData) {
     }
     
     // 国コードタグ
-    body += `[${locationData.countryCode.toLowerCase()}${locationData.countryCode}]\n\n`;
+    body += `[cc${locationData.countryCode}]\n\n`;
     
     // Scrapboxを開く
     const encodedBody = encodeURIComponent(body);
