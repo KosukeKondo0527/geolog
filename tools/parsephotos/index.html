@@ -522,96 +522,102 @@
     }
 
     async function processPhotos() {
-      const input = document.getElementById('photoInput');
-      const results = document.getElementById('results');
-      const processBtn = document.getElementById('processBtn');
-      
-      if (input.files.length === 0) {
-        alert("Please select photos first!");
-        return;
-      }
-      
-      // 処理開始
-      results.innerHTML = "";
-      processBtn.disabled = true;
-      toggleOverlay(true, "Preparing to process photos...");
-      
-      const files = [...input.files];
-      const totalFiles = files.length;
-      const grouped = {};
+  const input = document.getElementById('photoInput');
+  const results = document.getElementById('results');
+  const processBtn = document.getElementById('processBtn');
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const currentProgress = Math.round((i / totalFiles) * 100);
-        
-        // 進捗状況を更新
-        updateProgress(currentProgress, `Processing photo ${i+1} of ${totalFiles}...`);
-        
-        try {
-          // EXIFデータ取得
-          updateProgress(currentProgress, `Reading metadata from photo ${i+1}...`);
-          const { date, latitude, longitude } = await getExifData(file);
-          
-          // Imgurにアップロード
-          updateProgress(currentProgress, `Uploading photo ${i+1} to Imgur...`);
-          const imgUrl = await uploadToImgur(file);
-          
-          updateProgress(currentProgress, `Getting location info for photo ${i+1}...`);
-          const mapUrl = (latitude && longitude) ? `https://maps.google.com/?q=${latitude},${longitude}` : 'No location data';
-          const countryInfo = await getCountryFromCoords(latitude, longitude);
-          
-          const dateOnly = date.split(' ')[0];
-          // ページキーには国名を使用（ページタイトルに影響）
-          const pageKey = `${countryInfo.name}/${dateOnly}`;
-          
-          const block = [
-            `Photo date: ${date}`,
-            `Google Maps: ${mapUrl}`,
-            `[${imgUrl}]`, 
-            `[cc${countryInfo.code}]` // 大文字の国コードを使用
-          ].join("\n");
-          
-          if (!grouped[pageKey]) grouped[pageKey] = { 
-            country: countryInfo.name, 
-            date: dateOnly, 
-            blocks: [] 
-          };
-          grouped[pageKey].blocks.push(block);
-          
-          // プレビュー表示
-          updateProgress(currentProgress, `Creating preview for photo ${i+1}...`);
-        } catch (error) {
-          console.error(`Error processing photo ${i+1}:`, error);
-          updateProgress(currentProgress, `Error processing photo ${i+1}. Continuing...`);
-        }
-      }
+  if (input.files.length === 0) {
+    alert("Please select photos first!");
+    return;
+  }
 
-      // 結果生成
-      updateProgress(95, "Generating final results...");
-      
-      // プレビュー表示
-      for (let key of Object.keys(grouped).sort()) {
-        const group = grouped[key];
-        const scrapboxPageTitle = `${group.country}/${group.date}`;
-        const encoded = encodeURIComponent(scrapboxPageTitle);
-        const scrapboxUrl = `https://scrapbox.io/${scrapboxProject}/${encoded}`;
-        const textBlock = group.blocks.join("\n\n");
-        const entryHTML = createEntryHTML(scrapboxUrl, scrapboxPageTitle, textBlock);
-        results.appendChild(entryHTML);
-      }
-      
-      // 処理完了
-      updateProgress(100, "Processing complete!");
-      setTimeout(() => {
-        toggleOverlay(false);
-        processBtn.disabled = false;
-        
-        // 結果までスクロール
-        if (results.childElementCount > 0) {
-          results.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 1000);
+  results.innerHTML = "";
+  processBtn.disabled = true;
+  toggleOverlay(true, "Processing photos...");
+
+  const files = [...input.files];
+  const totalFiles = files.length;
+  const grouped = {};
+  let completed = 0;
+  const concurrencyLimit = 3;
+  let activeTasks = 0;
+  let currentIndex = 0;
+
+  const updateStatus = () => {
+    const percent = Math.round((completed / totalFiles) * 100);
+    updateProgress(percent, `Processed ${completed} of ${totalFiles} photos...`);
+  };
+
+  const processFile = async (file) => {
+    try {
+      const { date, latitude, longitude } = await getExifData(file);
+      const imgUrl = await uploadToImgur(file);
+      const mapUrl = (latitude && longitude) ? `https://maps.google.com/?q=${latitude},${longitude}` : 'No location data';
+      const countryInfo = await getCountryFromCoords(latitude, longitude);
+      const dateOnly = date.split(' ')[0];
+      const pageKey = `${countryInfo.name}/${dateOnly}`;
+
+      const block = [
+        `Photo date: ${date}`,
+        `Google Maps: ${mapUrl}`,
+        `[${imgUrl}]`,
+        `[cc${countryInfo.code}]`
+      ].join("\n");
+
+      if (!grouped[pageKey]) grouped[pageKey] = {
+        country: countryInfo.name,
+        date: dateOnly,
+        blocks: []
+      };
+      grouped[pageKey].blocks.push(block);
+    } catch (err) {
+      console.error(`Error processing ${file.name}:`, err);
+    } finally {
+      completed++;
+      updateStatus();
     }
+  };
+
+  // 並列処理制御用のループ
+  const runTasks = async () => {
+    return new Promise((resolve) => {
+      const tryNext = () => {
+        while (activeTasks < concurrencyLimit && currentIndex < files.length) {
+          const file = files[currentIndex++];
+          activeTasks++;
+          processFile(file).finally(() => {
+            activeTasks--;
+            if (completed === totalFiles) {
+              resolve();
+            } else {
+              tryNext();
+            }
+          });
+        }
+      };
+      tryNext();
+    });
+  };
+
+  await runTasks();
+
+  // 結果生成
+  updateProgress(95, "Generating final results...");
+  for (let key of Object.keys(grouped).sort()) {
+    const group = grouped[key];
+    const encoded = encodeURIComponent(`${group.country}/${group.date}`);
+    const scrapboxUrl = `https://scrapbox.io/${scrapboxProject}/${encoded}`;
+    const textBlock = group.blocks.join("\n\n");
+    results.appendChild(createEntryHTML(scrapboxUrl, `${group.country}/${group.date}`, textBlock));
+  }
+
+  updateProgress(100, "Processing complete!");
+  setTimeout(() => {
+    toggleOverlay(false);
+    processBtn.disabled = false;
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 1000);
+}
     
     // 初期化
     document.getElementById('processBtn').disabled = true;
